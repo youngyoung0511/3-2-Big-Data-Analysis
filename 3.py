@@ -1,41 +1,92 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
-from scipy.stats import pearsonr
 
-file_path = 'student_health_2.csv'
-data = pd.read_csv(file_path, encoding='cp949')
-data = data.rename(columns={'학교명': 'School', '학년': 'Grade', '키': 'Height', '성별': 'Gender'})
+# 1. 데이터 로드
+file_path = "student_health_2.csv"
+data = pd.read_csv(file_path, encoding='euc-kr')
 
-unique_schools = data['School'].unique()
-school_mapping = {school: f"School_{i+1}" for i, school in enumerate(unique_schools)}
-data['School'] = data['School'].map(school_mapping)
+# 2. 필요한 열만 선택
+columns_needed = ['학년', '키', '몸무게', '수축기', '이완기']
+data = data[columns_needed]
 
-data = data.dropna(subset=['Height'])
+# 3. 데이터 전처리 (결측값 확인 및 학년 정수형 변환)
+data['학년'] = data['학년'].astype(int)  # 학년을 정수형으로 변환
 
-grade_school_avg = data.groupby(['School', 'Grade'], observed=False)['Height'].mean().unstack()
 
-grade_school_avg = grade_school_avg.fillna(0)
+# 5. 학년별 평균 계산
+averages = data.groupby('학년').agg({
+    '키': 'mean',
+    '몸무게': 'mean',
+    '수축기': 'mean',
+    '이완기': 'mean'
+}).reset_index()
 
-plt.figure(figsize=(12, 8))
-sns.heatmap(grade_school_avg, annot=True, cmap='coolwarm', cbar_kws={'label': 'Average Height'}, fmt='.1f')
-plt.title('Colormap of Height: Grade vs School')
-plt.xlabel('Grade'), plt.ylabel('School'), plt.show()
+# 모든 학년 고정
+grades = [1, 2, 3, 4, 5, 6]
+average_height_fixed = [averages[averages['학년'] == grade]['키'].values[0] if grade in averages['학년'].values else 0 for grade in grades]
+average_weight_fixed = [averages[averages['학년'] == grade]['몸무게'].values[0] if grade in averages['학년'].values else 0 for grade in grades]
+average_systolic_fixed = [averages[averages['학년'] == grade]['수축기'].values[0] if grade in averages['학년'].values else 0 for grade in grades]
+average_diastolic_fixed = [averages[averages['학년'] == grade]['이완기'].values[0] if grade in averages['학년'].values else 0 for grade in grades]
 
-grade_means = data.groupby('Grade')['Height'].mean()
-print("Mean height of each grade:\n", grade_means)
+# 6. 그래프 생성 함수
+def plot_bar(x, y, title, xlabel, ylabel, color, edgecolor='black'):
+    plt.figure(figsize=(10, 6))
+    plt.bar(x, y, color=color, edgecolor=edgecolor)
+    plt.title(title, fontsize=16)
+    plt.xlabel(xlabel, fontsize=14)
+    plt.ylabel(ylabel, fontsize=14)
+    plt.xticks(x, labels=x, fontsize=12)  # X축 값 강제 설정
+    plt.yticks(fontsize=12)
+    plt.tight_layout()
+    plt.show()
 
-school_corr = {s: (pearsonr(grade_school_avg.loc[s], grade_means)[0] if (grade_school_avg.loc[s] > 0).any() else np.nan)
-               for s in grade_school_avg.index}
+# Graph 1: Number of students per grade
+plot_bar(
+    x=grades,
+    y=[data['학년'].value_counts().get(grade, 0) for grade in grades],
+    title='Number of Students per Grade',
+    xlabel='Grade',
+    ylabel='Number of Students',
+    color='skyblue'
+)
 
-print("Pearson correlation coefficients:")
-for s, c in school_corr.items():
-    print(f"{s}: {c:.2f}" if not np.isnan(c) else f"{s}: No valid data")
+# Graph 2: Average height per grade
+plot_bar(
+    x=grades,
+    y=average_height_fixed,
+    title='Average Height per Grade',
+    xlabel='Grade',
+    ylabel='Height (cm)',
+    color='lightgreen'
+)
 
-valid_corr = {k: v for k, v in school_corr.items() if not np.isnan(v)}
-if valid_corr:
-    max_school = max(valid_corr, key=valid_corr.get)
-    print(f"Highest correlation is with {max_school}: {valid_corr[max_school]:.2f}")
-else:
-    print("No valid correlation data.")
+# Graph 3: Average weight per grade
+plot_bar(
+    x=grades,
+    y=average_weight_fixed,
+    title='Average Weight per Grade',
+    xlabel='Grade',
+    ylabel='Weight (kg)',
+    color='orange'
+)
+
+# Graph 4: Average systolic blood pressure per grade
+plot_bar(
+    x=grades,
+    y=average_systolic_fixed,
+    title='Average Systolic Blood Pressure per Grade',
+    xlabel='Grade',
+    ylabel='Systolic BP (mmHg)',
+    color='pink'
+)
+
+# Graph 5: Average diastolic blood pressure per grade
+plot_bar(
+    x=grades,
+    y=average_diastolic_fixed,
+    title='Average Diastolic Blood Pressure per Grade',
+    xlabel='Grade',
+    ylabel='Diastolic BP (mmHg)',
+    color='purple'
+)
